@@ -120,11 +120,12 @@ case $key in
 esac
 done
 set -- "${POSITIONAL[@]}"
-echo $@
 
-#output=${YUM_REPO_ROOT}/centos/${releasever}/os/${basearch}/
-for repo in "$@"; do
-	reposync ${opt_configfile+-c ${opt_configfile}} -r $repo \
-		${opt_outdir--u} \
-		${opt_outdir+${opt_newest+-n} ${opt_nogpgcheck--g} --download-metadata --downloadcomps --norepopath --download_path=${opt_outdir}}
-done
+#append -r flag to all repo names
+repos=$(printf -- "--repoid=%s " $@)
+
+reposync ${opt_configfile+-c ${opt_configfile}} \
+	${opt_outdir---urls} \
+	${opt_outdir+${opt_newest+--newest-only} ${opt_nogpgcheck---gpgcheck} --download-metadata --downloadcomps --download_path=${opt_outdir}} \
+	${repos}
+
