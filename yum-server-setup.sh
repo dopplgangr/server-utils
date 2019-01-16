@@ -11,7 +11,7 @@ reposdir=/dev/null
 
 [os]
 name=CentOS-${releasever} - Base
-baseurl=${mirror}/os/${basearch}/
+baseurl=${mirror}/${releasever}/os/${basearch}/
 enabled=1
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-${releasever/.[0-9]*}
@@ -80,11 +80,11 @@ key="$1"
 
 case $key in
 	-g|--generate)
-	CENTOS_MIRROR="http://mirror.centos.org/centos/${releasever}"
-	CENTOS_VAULT="http://vault.centos.org/${releasever}"
+	CENTOS_MIRROR="http://mirror.centos.org/centos"
+	CENTOS_VAULT="http://vault.centos.org"
 	opt_release=${2?"Error: generate requires a release string"}
 	opt_arch=${3-x86_64}
-	if isdeprecated ${releasever}
+	if isdeprecated ${opt_release}
 		then mirror=${CENTOS_VAULT}
 		else mirror=${CENTOS_MIRROR}
 	fi
