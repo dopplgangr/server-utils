@@ -45,31 +45,6 @@ isdeprecated() {
    else false; fi
 }
 
-function print_seperator {
-echo -e "------------------------------------"
-}
-
-function print_header {
-print_seperator
-echo -e "$1"
-print_seperator
-}
-
-function print_item {
-echo -e "** $1"
-}
-
-function print_cmd {
-echo -e "$ $1"
-eval "$1"
-}
-
-function get_repos {
-   awk '/name/ {print $NF}' /etc/yum.repos.d/*
-   ret=$?
-   [[ $ret -gt 0 ]] && exit $ret
-}
-
 do_install=false
 if [[ "$do_install" == "true" ]]; then
 	print_header "Installing Dependencies"
@@ -80,20 +55,21 @@ fi
 usage() {
 script_name=$(basename $0)
 cat << EOF
-${script_name} [-g] version [repos...]
--x, --arch	override default (x86-64) arch string
 
--g, --generate	print a repofile for this version to stdout and exit
+usage: ${script_name} [-g] version [repos...]
+
+-h, --help	
+	print this message and exit
+-g, --generate	
+	print a repofile for this version to stdout and exit
 
 reposync options
--c, --config <c_arg>	use c_arg as yum config file
+-c, --config <c_arg>	
+	use c_arg as yum config file
 
 -u, --urls	don't sync repositories, just print the urls
 
 -n, --newest	only download latest release of rpms
-
--h, --help	print this message and exit
-
 
 EOF
 }
@@ -104,32 +80,36 @@ key="$1"
 
 case $key in
 	-g|--generate)
-	opt_genrepofile=1
-	shift
-	;;
-	-x|--arch)
-	opt_arch="$2"
-	shift
-	shift
+	CENTOS_MIRROR="http://mirror.centos.org/centos/${releasever}"
+	CENTOS_VAULT="http://vault.centos.org/${releasever}"
+	opt_release=${2?"Error: generate requires a release string"}
+	opt_arch=${3-x86_64}
+	if isdeprecated ${releasever}
+		then mirror=${CENTOS_VAULT}
+		else mirror=${CENTOS_MIRROR}
+	fi
+	generate_centos_repofile ${mirror} ${opt_release} ${opt_arch}
+	exit
 	;;
 	-c|--config)
 	opt_configfile=$2
 	shift
 	shift
 	;;
-	-u|--urls)
-	opt_printurls=1
+	-o|--output-directory)
+	opt_outdir=$2
+	shift
 	shift
 	;;
 	-n|--newest)
 	opt_newest=1
 	shift
 	;;
-	-g|--no-gpgcheck)
+	-x|--no-gpgcheck)
 	opt_nogpgcheck=1
 	shift
 	;;
-	-h|--help) 
+	-h|-?|--help) 
 	usage
 	exit
 	;;
@@ -140,29 +120,11 @@ case $key in
 esac
 done
 set -- "${POSITIONAL[@]}"
+echo $@
 
-YUM_REPO_ROOT=/srv/repos
-CENTOS_MIRROR="http://mirror.centos.org/centos/${releasever}"
-CENTOS_VAULT="http://vault.centos.org/${releasever}"
-
-releasever=$1
-if [[ -z ${releasever} ]]; then usage; exit 1; fi
-shift
-
-basearch=${opt_arch:-x86_64}
-
-if [[ $opt_genrepofile ]]; then
-	if isdeprecated ${releasever}
-		then mirror=${CENTOS_VAULT}
-		else mirror=${CENTOS_MIRROR}
-	fi
-	generate_centos_repofile ${mirror} ${releasever} ${basearch}
-	exit 0
-fi
-
-output=${YUM_REPO_ROOT}/centos/${releasever}/os/${basearch}/
-repo=extras
-
-reposync ${opt_configfile+-c $opt_configfile} ${opt_newest+-n} ${opt_printurls+-u} -r $repo ${opt_nogpgcheck--g} --download_path=/srv/repos/
-#reposync ${opt_configfile+-c $opt_configfile} ${opt_newest+-n} ${opt_printurls+-u} -r $repo -g
-
+#output=${YUM_REPO_ROOT}/centos/${releasever}/os/${basearch}/
+for repo in "$@"; do
+	reposync ${opt_configfile+-c ${opt_configfile}} -r $repo \
+		${opt_outdir--u} \
+		${opt_outdir+${opt_newest+-n} ${opt_nogpgcheck--g} --download-metadata --downloadcomps --norepopath --download_path=${opt_outdir}}
+done
